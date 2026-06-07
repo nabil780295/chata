@@ -17,11 +17,17 @@ export default function App() {
   const [showPwaInstallModal, setShowPwaInstallModal] = useState(false);
   const [isInIframe, setIsInIframe] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isInstallMode, setIsInstallMode] = useState(false);
+  const [swReady, setSwReady] = useState(false);
 
-  // Detect if app is loaded inside an iframe (like AI Studio preview)
+  // Detect query parameters and iframe state on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       setIsInIframe(window.self !== window.top);
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("install") === "true") {
+        setIsInstallMode(true);
+      }
     }
   }, []);
 
@@ -32,6 +38,7 @@ export default function App() {
         .register("/sw.js")
         .then((reg) => {
           console.log("PWA Service Worker registered with scope: ", reg.scope);
+          setSwReady(true);
         })
         .catch((err) => {
           console.error("PWA Service Worker registration failed: ", err);
@@ -68,12 +75,22 @@ export default function App() {
   };
 
   const handleDownloadAPK = async () => {
-    // If we are in an iframe, we MUST show the modal to help them open in Safari/Chrome
+    // 1. If inside iframe (AI Studio), break out onto a secure tab immediately
     if (window.self !== window.top) {
-      setShowPwaInstallModal(true);
+      const parentUrl = new URL(window.location.href);
+      // Replace -dev- subdomain with -pre- for cleaner public user share experience
+      let targetUrl = parentUrl.toString();
+      if (targetUrl.includes("-dev-")) {
+        targetUrl = targetUrl.replace("-dev-", "-pre-");
+      }
+      
+      const newUrl = new URL(targetUrl);
+      newUrl.searchParams.set("install", "true");
+      window.open(newUrl.toString(), "_blank");
       return;
     }
 
+    // 2. If outside iframe, and deferredPrompt is stashed, trigger native install prompt instantly
     if (deferredPrompt) {
       try {
         deferredPrompt.prompt();
@@ -82,6 +99,10 @@ export default function App() {
           console.log("User accepted the home screen installation prompt.");
           setDeferredPrompt(null);
           setShowDownloadBanner(false);
+          setIsInstallMode(false);
+          // Redirect to clean home view
+          const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
         } else {
           console.log("User dismissed the home screen installation.");
         }
@@ -97,7 +118,7 @@ export default function App() {
 
   const copyToClipboard = () => {
     if (typeof window !== "undefined" && navigator.clipboard) {
-      const liveUrl = window.location.href.replace("-dev-", "-pre-"); // Point to production-ready preview URL if possible
+      const liveUrl = window.location.href.replace("-dev-", "-pre-").split("?")[0];
       navigator.clipboard.writeText(liveUrl);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2500);
@@ -147,7 +168,90 @@ export default function App() {
 
         {/* Dynamic Screen View routing inside the smartphone box */}
         <div className="flex-1 w-full h-full overflow-hidden flex flex-col relative pt-1 sm:pt-4">
-          {activePersona ? (
+          {isInstallMode ? (
+            <div className="flex-1 flex flex-col items-center justify-between p-6 bg-[#0B0C0E] overflow-y-auto" id="direct_install_screen">
+              {/* Header Icon */}
+              <div className="w-full flex justify-end">
+                <button 
+                  onClick={() => setIsInstallMode(false)}
+                  className="p-2 text-gray-500 hover:text-gray-300 rounded-full hover:bg-gray-800 transition"
+                  title="Skip/Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 flex flex-col items-center justify-center max-w-sm text-center my-auto space-y-6">
+                {/* Visual Animated Logo/App Brand */}
+                <div className="relative">
+                  <div className="absolute -inset-1.5 bg-gradient-to-r from-[#0084FF] to-pink-500 rounded-3xl blur opacity-75 animate-pulse"></div>
+                  <div className="relative w-24 h-24 bg-[#18191A] rounded-3xl border border-gray-800 flex items-center justify-center shadow-xl">
+                    <img 
+                      src="/logo-512.png" 
+                      alt="Maya App Logo" 
+                      className="w-16 h-16 rounded-2xl object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  {/* Small absolute indicator badge */}
+                  <div className="absolute -bottom-2 -right-2 bg-[#0084FF] text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow border border-gray-950 animate-bounce">
+                    APP
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <h2 className="text-xl font-extrabold text-white flex items-center justify-center space-x-1.5">
+                    <Sparkles className="w-5 h-5 text-[#0084FF]" />
+                    <span>মায়া অফিশিয়াল ওয়ান-ক্লিক ইনস্টলার</span>
+                  </h2>
+                  <p className="text-xs text-gray-400 leading-relaxed max-w-[280px] mx-auto">
+                    কোনো প্রকার প্লে-স্টোর বা ঝামেলা ছাড়াই ১টি ক্লিকে মায়া চ্যাট অ্যাপটি সরাসরি আপনার মোবাইলের হোম স্ক্রিনে যুক্ত করুন।
+                  </p>
+                </div>
+
+                {/* Status check / main action button block */}
+                <div className="w-full pt-2 space-y-3">
+                  <button 
+                    onClick={handleDownloadAPK}
+                    className="w-full bg-gradient-to-r from-[#0084FF] via-[#00A8FF] to-pink-500 hover:opacity-95 text-white font-extrabold text-sm py-4 rounded-2xl shadow-xl shadow-[#0084FF]/20 active:scale-95 transition-all duration-150 flex items-center justify-center space-x-2.5 group"
+                    id="direct_pwa_installer_trigger"
+                  >
+                    <Download className="w-5 h-5 text-white animate-bounce" />
+                    <span>ফোনের স্ক্রিনে যুক্ত করুন</span>
+                  </button>
+
+                  {deferredPrompt ? (
+                    <span className="text-[10px] text-green-400 flex items-center justify-center space-x-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-ping"></span>
+                      <span>ইনস্টলেশন ইঞ্জিন প্রস্তুত! ১-ক্লিকে যুক্ত করুন</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-gray-500 flex items-center justify-center space-x-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                      <span>আপনার ব্রাউজার প্রস্তুত করা হচ্ছে...</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Elegant simple step guidance beneath for absolute clarity */}
+                <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-800/60 w-full text-left space-y-2 text-xs">
+                  <span className="text-gray-300 font-bold block mb-1 text-[11px] uppercase tracking-wide">💡 যদি ওপরের বাটনটি কাজ না করে:</span>
+                  <div className="text-gray-400 space-y-1.5 leading-normal">
+                    <p>১. আপনার ব্রাউজারের একেবারে ওপরে ডানদিকের <b className="text-gray-200">তিনটি ডট (⋮)</b> মেনুতে চাপুন।</p>
+                    <p>২. নিচে স্ক্রল করে <b className="text-[#0084FF] font-black">"Install App"</b> বা <b className="text-[#0084FF] font-black">"Add to Home screen"</b> লেখাটিতে চাপুন।</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Back to App text action */}
+              <button 
+                onClick={() => setIsInstallMode(false)}
+                className="text-[11px] text-gray-500 hover:text-[#0084FF] transition border-t border-gray-900 w-full pt-4 mt-4 font-semibold animate-pulse"
+              >
+                ইনস্টল না করে সরাসরি চ্যাট করুন 💬
+              </button>
+            </div>
+          ) : activePersona ? (
             <ActiveChat 
               persona={activePersona} 
               onBack={() => {

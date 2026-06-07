@@ -59,6 +59,31 @@ async function startServer() {
     });
   });
 
+  // Proxy endpoints for same-origin PWA compliant icons
+  app.get("/logo-192.png", async (req, res) => {
+    try {
+      const response = await fetch("https://img.icons8.com/color/192/000000/messenger--v1.png");
+      const buffer = await response.arrayBuffer();
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(Buffer.from(buffer));
+    } catch (e) {
+      res.status(404).send("Not found");
+    }
+  });
+
+  app.get("/logo-512.png", async (req, res) => {
+    try {
+      const response = await fetch("https://img.icons8.com/color/512/000000/messenger--v1.png");
+      const buffer = await response.arrayBuffer();
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(Buffer.from(buffer));
+    } catch (e) {
+      res.status(404).send("Not found");
+    }
+  });
+
   // Serve Manifest dynamically for instant setup with proper icons and Messenger theme colors
   app.get("/manifest.json", (req, res) => {
     res.setHeader("Content-Type", "application/json");
@@ -68,12 +93,12 @@ async function startServer() {
       description: "মায়া অফিশিয়াল অ্যাপ - সরাসরি হোমসক্রিনে যুক্ত করুন",
       icons: [
         {
-          src: "https://img.icons8.com/color/192/000000/messenger--v1.png",
+          src: "/logo-192.png",
           type: "image/png",
           sizes: "192x192"
         },
         {
-          src: "https://img.icons8.com/color/512/000000/messenger--v1.png",
+          src: "/logo-512.png",
           type: "image/png",
           sizes: "512x512"
         }
