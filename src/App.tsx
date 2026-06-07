@@ -15,6 +15,15 @@ export default function App() {
   const [showDownloadBanner, setShowDownloadBanner] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPwaInstallModal, setShowPwaInstallModal] = useState(false);
+  const [isInIframe, setIsInIframe] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Detect if app is loaded inside an iframe (like AI Studio preview)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsInIframe(window.self !== window.top);
+    }
+  }, []);
 
   // Register service worker on mount for PWA compatibility
   useEffect(() => {
@@ -59,6 +68,12 @@ export default function App() {
   };
 
   const handleDownloadAPK = async () => {
+    // If we are in an iframe, we MUST show the modal to help them open in Safari/Chrome
+    if (window.self !== window.top) {
+      setShowPwaInstallModal(true);
+      return;
+    }
+
     if (deferredPrompt) {
       try {
         deferredPrompt.prompt();
@@ -77,6 +92,15 @@ export default function App() {
     } else {
       // If prompt didn't fire due to browser constraints, provide manual fallback steps
       setShowPwaInstallModal(true);
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (typeof window !== "undefined" && navigator.clipboard) {
+      const liveUrl = window.location.href.replace("-dev-", "-pre-"); // Point to production-ready preview URL if possible
+      navigator.clipboard.writeText(liveUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
     }
   };
 
@@ -242,7 +266,7 @@ export default function App() {
 
         {/* PWA Instruction modal help */}
         {showPwaInstallModal && (
-          <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-[999] flex items-center justify-center p-4" id="pwa_instruction_modal">
+          <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200" id="pwa_instruction_modal">
             <div className="bg-[#18191A] border border-gray-800/80 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl relative animate-in fade-in zoom-in duration-200">
               <div className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
@@ -259,42 +283,77 @@ export default function App() {
                   </button>
                 </div>
 
-                <p className="text-xs text-gray-300 leading-relaxed">
-                  আপনার ফোনে মায়া অফিশিয়াল অ্যাপ সরাসরি মোবাইল স্ক্রিনে যুক্ত করার জন্য নিচের পদক্ষেপগুলো ব্যবহার করুন:
-                </p>
+                {isInIframe ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-amber-400 leading-relaxed bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                      ⚠️ আপনি এখন <b>AI Studio প্রিভিউ ফ্রেমের</b> ভেতরে আছেন। ব্রাউজারের নিরাপত্তার কারণে প্রিভিউ বক্স থেকে ফোনে সরাসরি ইনস্টল করা যায় না।
+                    </p>
+                    <p className="text-[11px] text-gray-300">
+                      নিচের সহজ পদক্ষেপের মাধ্যমে ১ ক্লিকেই সরাসরি ফোনে ইনস্টল করে নিন:
+                    </p>
 
-                <div className="space-y-3 pt-1">
-                  <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
-                    <div className="w-5 h-5 rounded-full bg-[#0084FF]/20 text-[#0084FF] text-xs font-bold flex items-center justify-center mt-0.5">১</div>
-                    <div className="text-xs">
-                      <span className="text-gray-100 font-bold block">Android / Chrome ব্রাউজার</span>
-                      <p className="text-gray-400 mt-1">ব্রাউজারের উপরে ডানদিকের ৩টি ডট (<span className="font-bold text-[#0084FF]">⋮</span>) মেনুতে চাপুন এবং <b className="text-gray-200 font-semibold">"Install app"</b> অথবা <b className="text-gray-200 font-semibold">"Add to Home screen"</b> অপশনটিতে চাপুন।</p>
+                    <div className="space-y-2.5 pt-1">
+                      <a 
+                        href={typeof window !== "undefined" ? window.location.href : "#"} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="w-full bg-[#0084FF] hover:bg-[#0084FF]/90 text-white font-bold text-xs py-3 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-[#0084FF]/20 transition active:scale-95 text-center"
+                      >
+                        <span>১. নতুন ট্যাবে ওপেন করুন ↗️</span>
+                      </a>
+
+                      <button 
+                        onClick={copyToClipboard}
+                        className="w-full bg-gray-900 border border-gray-800 hover:bg-gray-800 text-gray-200 font-bold text-xs py-3 rounded-xl transition active:scale-95"
+                      >
+                        <span>{linkCopied ? "লিংক কপি হয়েছে! ✅" : "২. লিংক কপি করে Chrome/Safari তে পেস্ট করুন 📋"}</span>
+                      </button>
                     </div>
-                  </div>
 
-                  <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
-                    <div className="w-5 h-5 rounded-full bg-pink-500/20 text-pink-400 text-xs font-bold flex items-center justify-center mt-0.5">২</div>
-                    <div className="text-xs">
-                      <span className="text-gray-100 font-bold block">iPhone / Safari ব্রাউজার</span>
-                      <p className="text-gray-400 mt-1">ব্রাউজারের নিচে শেয়ার (<span className="px-1.5 py-0.5 bg-gray-800 rounded font-bold">↑</span>) বাটনে চাপুন এবং একটু নিচে স্ক্রল করে <b className="text-gray-200 font-semibold">"Add to Home Screen"</b> এ আলতো চাপুন।</p>
+                    <p className="text-[10px] text-gray-500 text-center leading-normal">
+                      নতুন ট্যাবে ওপেন করার পর উপরের <b>"যুক্ত করুন"</b> বাটনে চাপলেই সরাসরি ফোনেই ইনস্টল অপশন চলে আসবে!
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      আপনার ফোনে মায়া অ্যাপ সরাসরি মোবাইল স্ক্রিনে যুক্ত করার জন্য নিচের সহজ নির্দেশনাবলী অনুসরণ করুন:
+                    </p>
+
+                    <div className="space-y-3 pt-1">
+                      <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
+                        <div className="w-5 h-5 rounded-full bg-[#0084FF]/10 border border-[#0084FF]/20 text-[#0084FF] text-xs font-bold flex items-center justify-center mt-0.5">১</div>
+                        <div className="text-xs">
+                          <span className="text-gray-100 font-bold block">Android / Chrome ব্রাউজার</span>
+                          <p className="text-gray-400 mt-1">ব্রাউজারের উপরে ডানদিকের ৩টি ডট (<span className="font-bold text-[#0084FF]">⋮</span>) মেনুতে চাপুন এবং <b className="text-gray-200 font-semibold">"Install app"</b> অথবা <b className="text-gray-200 font-semibold">"Add to Home screen"</b> অপশনটিতে চাপুন।</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
+                        <div className="w-5 h-5 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-400 text-xs font-bold flex items-center justify-center mt-0.5">২</div>
+                        <div className="text-xs">
+                          <span className="text-gray-100 font-bold block">iPhone / Safari ব্রাউজার</span>
+                          <p className="text-gray-400 mt-1">সাফারির নিচে শেয়ার (<span className="px-1.5 py-0.5 bg-gray-800 rounded font-bold">↑</span>) বাটনে চাপুন এবং একটু নিচে স্ক্রল করে <b className="text-gray-200 font-semibold">"Add to Home Screen"</b> এ আলতো চাপুন।</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
+                        <div className="w-5 h-5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold flex items-center justify-center mt-0.5">৩</div>
+                        <div className="text-xs">
+                          <span className="text-gray-100 font-bold block">সরাসরি যুক্ত করার সুবিধা</span>
+                          <p className="text-gray-400 mt-1">কোনো প্রকার স্টোর ছাড়াও হোমসক্রিন আইকনটিতে এক ক্লিকেই সরাসরি চ্যাট স্ক্রিনে প্রবেশ করতে পারবেন।</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
-                    <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold flex items-center justify-center mt-0.5">৩</div>
-                    <div className="text-xs">
-                      <span className="text-gray-100 font-bold block">সরাসরি যুক্ত করার সুবিধা</span>
-                      <p className="text-gray-400 mt-1">কোনো প্রকার ঝক্কি-ঝামেলা ছাড়াই হোমসক্রিন আইকনটিতে এক ক্লিকেই সরাসরি চ্যাট স্ক্রিনে প্রবেশ করতে পারবেন।</p>
-                    </div>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => setShowPwaInstallModal(false)}
-                  className="w-full bg-[#0084FF] hover:bg-[#0084FF]/90 text-white font-bold text-xs py-3 rounded-xl transition duration-150 relative active:scale-95"
-                >
-                  বুঝেছি, ধন্যবাদ! 👍
-                </button>
+                    <button 
+                      onClick={() => setShowPwaInstallModal(false)}
+                      className="w-full bg-[#0084FF] hover:bg-[#0084FF]/90 text-white font-bold text-xs py-3 rounded-xl transition duration-150 relative active:scale-95"
+                    >
+                      বুঝেছি, ধন্যবাদ! 👍
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
