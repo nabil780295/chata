@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Compass, Star, MapPin, Heart, Clock, Search, Sparkles } from "lucide-react";
+import { Compass, Star, MapPin, Heart, Clock, Search, Sparkles, Download } from "lucide-react";
 import { Persona } from "../types";
 import { getPersonas } from "../lib/store";
 
 interface PeopleTabProps {
   onSelectPersona: (persona: Persona) => void;
   refreshFlag: number;
+  onDownloadAPK?: () => void;
 }
 
-export default function PeopleTab({ onSelectPersona, refreshFlag }: PeopleTabProps) {
+export default function PeopleTab({ onSelectPersona, refreshFlag, onDownloadAPK }: PeopleTabProps) {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [filterCriteria, setFilterCriteria] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,12 +35,25 @@ export default function PeopleTab({ onSelectPersona, refreshFlag }: PeopleTabPro
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0B0C0E]" id="people_tab_view">
       
       {/* Title & Filter Segment */}
-      <div className="px-4 pt-4 pb-2 select-none flex-shrink-0">
-        <h1 className="text-2xl font-black text-gray-100 flex items-center space-x-2 tracking-tight">
-          <span>People</span>
-          <span className="text-pink-500 font-mono text-xs bg-pink-500/10 px-2 py-0.5 rounded-full mt-0.5">Explore Profiles</span>
-        </h1>
-        <p className="text-xs text-gray-500 mt-1">Discover virtual AI partners with highly specialized personalities and interests.</p>
+      <div className="px-4 pt-4 pb-2 select-none flex-shrink-0 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-gray-100 flex items-center space-x-2 tracking-tight">
+            <span>People</span>
+            <span className="text-pink-500 font-mono text-xs bg-pink-500/10 px-2 py-0.5 rounded-full mt-0.5">Explore Profiles</span>
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">Discover virtual AI partners with specialized personalities.</p>
+        </div>
+        {onDownloadAPK && (
+          <button 
+            onClick={onDownloadAPK}
+            className="p-1 px-3 bg-[#0084FF] hover:bg-[#0084FF]/95 text-white rounded-full text-[11px] font-bold flex items-center space-x-1 transition duration-150 shadow-md animate-pulse shrink-0 mt-1"
+            id="people_header_download"
+            title="ডাউনলোড অ্যাপ"
+          >
+            <Download className="w-3.5 h-3.5 text-white" />
+            <span>ডাউনলোড</span>
+          </button>
+        )}
       </div>
 
       {/* Inline Search Filter row */}

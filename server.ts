@@ -59,6 +59,58 @@ async function startServer() {
     });
   });
 
+  // Serve Manifest dynamically for instant setup with proper icons and Messenger theme colors
+  app.get("/manifest.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.json({
+      short_name: "Maya",
+      name: "Maya: AI Virtual Companion",
+      description: "মায়া অফিশিয়াল অ্যাপ - সরাসরি হোমসক্রিনে যুক্ত করুন",
+      icons: [
+        {
+          src: "https://img.icons8.com/color/192/000000/messenger--v1.png",
+          type: "image/png",
+          sizes: "192x192"
+        },
+        {
+          src: "https://img.icons8.com/color/512/000000/messenger--v1.png",
+          type: "image/png",
+          sizes: "512x512"
+        }
+      ],
+      start_url: "/",
+      background_color: "#121212",
+      theme_color: "#121212",
+      display: "standalone",
+      orientation: "portrait"
+    });
+  });
+
+  // Serve compliant minimal Service Worker for direct installation trigger on Android/PWA agents
+  app.get("/sw.js", (req, res) => {
+    res.setHeader("Content-Type", "application/javascript");
+    res.send(`
+      const CACHE_NAME = 'maya-companion-v1';
+      self.addEventListener('install', (event) => {
+        event.waitUntil(
+          caches.open(CACHE_NAME).then((cache) => {
+            return cache.addAll(['/']);
+          }).then(() => self.skipWaiting())
+        );
+      });
+      self.addEventListener('activate', (event) => {
+        event.waitUntil(
+          self.clients.claim()
+        );
+      });
+      self.addEventListener('fetch', (event) => {
+        event.respondWith(
+          fetch(event.request).catch(() => caches.match(event.request))
+        );
+      });
+    `);
+  });
+
   // Chat endpoint to retrieve AI replies
   app.post("/api/chat", async (req, res) => {
     const { message, history, persona } = req.body as {

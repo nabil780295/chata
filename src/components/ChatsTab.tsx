@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Plus, MessageSquare, Flame, Laptop, Video, Clock } from "lucide-react";
+import { Search, Plus, MessageSquare, Flame, Laptop, Video, Clock, Download } from "lucide-react";
 import { Persona, Conversation, Story } from "../types";
 import { getPersonas, getStories, getConversations, getOrCreateConversation, saveStory } from "../lib/store";
 import { motion, AnimatePresence } from "motion/react";
@@ -7,9 +7,10 @@ import { motion, AnimatePresence } from "motion/react";
 interface ChatsTabProps {
   onSelectPersona: (persona: Persona) => void;
   refreshFlag: number;
+  onDownloadAPK?: () => void;
 }
 
-export default function ChatsTab({ onSelectPersona, refreshFlag }: ChatsTabProps) {
+export default function ChatsTab({ onSelectPersona, refreshFlag, onDownloadAPK }: ChatsTabProps) {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -91,10 +92,21 @@ export default function ChatsTab({ onSelectPersona, refreshFlag }: ChatsTabProps
           <span>Chats</span>
           <span className="text-[#0084FF] text-xs bg-[#0084FF]/10 px-2 py-0.5 rounded-full font-mono mt-0.5">Maya v1.2</span>
         </h1>
-        <div className="flex space-x-2.5">
+        <div className="flex items-center space-x-2">
+          {onDownloadAPK && (
+            <button 
+              onClick={onDownloadAPK}
+              className="p-1 px-3 bg-[#0084FF] hover:bg-[#0084FF]/95 text-white rounded-full text-xs font-bold flex items-center space-x-1 transition duration-150 shadow-md animate-pulse shrink-0"
+              id="chats_header_download"
+              title="ডাউনলোড অ্যাপ"
+            >
+              <Download className="w-3.5 h-3.5 text-white" />
+              <span>ডাউনলোড</span>
+            </button>
+          )}
           <button 
             onClick={() => setShowAddStory(true)}
-            className="p-1 px-2.5 bg-[#242526] hover:bg-gray-800 rounded-full text-xs text-gray-200 border border-gray-800 flex items-center space-x-1 transition duration-150"
+            className="p-1 px-2.5 bg-[#242526] hover:bg-gray-800 rounded-full text-xs text-gray-200 border border-gray-800 flex items-center space-x-1 transition duration-150 shrink-0"
             id="create_story_action_tab"
           >
             <Plus className="w-3.5 h-3.5 text-[#0084FF]" />

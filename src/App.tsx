@@ -13,26 +13,70 @@ export default function App() {
   const [refreshFlag, setRefreshFlag] = useState(0);
   const [globalUnreadCount, setGlobalUnreadCount] = useState(0);
   const [showDownloadBanner, setShowDownloadBanner] = useState(true);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showPwaInstallModal, setShowPwaInstallModal] = useState(false);
+
+  // Register service worker on mount for PWA compatibility
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          console.log("PWA Service Worker registered with scope: ", reg.scope);
+        })
+        .catch((err) => {
+          console.error("PWA Service Worker registration failed: ", err);
+        });
+    }
+  }, []);
+
+  // Listen for the beforeinstallprompt browser event trigger
+  useEffect(() => {
+    const handleInstallPrompt = (e: Event) => {
+      // Prevent browser standalone fallback
+      e.preventDefault();
+      // Stash prompt event block
+      setDeferredPrompt(e);
+      // Ensure banner remains helper-friendly and visible
+      setShowDownloadBanner(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleInstallPrompt);
+
+    // Auto-detect if user running in standalone installed session
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setShowDownloadBanner(false);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
+    };
+  }, []);
 
   // Trigger state refreshes across independent components
   const triggerRefreshData = () => {
     setRefreshFlag(prev => prev + 1);
   };
 
-  const handleDownloadAPK = () => {
-    try {
-      const apkHeader = new Uint8Array([80, 75, 3, 4, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-      const blob = new Blob([apkHeader], { type: "application/vnd.android.package-archive" });
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = "Maya_Female_Companions_v1.2.apk";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(downloadUrl);
-    } catch (e) {
-      console.error("APK generation failed:", e);
+  const handleDownloadAPK = async () => {
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const choiceResult = await deferredPrompt.userChoice;
+        if (choiceResult.outcome === "accepted") {
+          console.log("User accepted the home screen installation prompt.");
+          setDeferredPrompt(null);
+          setShowDownloadBanner(false);
+        } else {
+          console.log("User dismissed the home screen installation.");
+        }
+      } catch (err) {
+        console.error("Installation request failed:", err);
+        setShowPwaInstallModal(true);
+      }
+    } else {
+      // If prompt didn't fire due to browser constraints, provide manual fallback steps
+      setShowPwaInstallModal(true);
     }
   };
 
@@ -91,41 +135,32 @@ export default function App() {
           ) : (
             <div className="flex-1 flex flex-col w-full h-full overflow-hidden">
               
-              {/* One-Click APK App Download Ribbon Header */}
-              {showDownloadBanner && (
-                <div className="bg-[#18191A] border-b border-gray-800/80 p-3 px-3.5 flex items-center justify-between select-none relative transition-all" id="apk_download_header">
-                  <div className="flex items-center space-x-2.5 min-w-0">
-                    <div className="p-1.5 bg-[#0084FF]/10 rounded-xl border border-[#0084FF]/25 flex-shrink-0 flex items-center justify-center">
-                      <Sparkles className="w-4 h-4 text-[#0084FF]" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center space-x-1.5">
-                        <span className="font-bold text-xs text-gray-100 tracking-wide truncate">মায়া অফিশিয়াল অ্যাপ</span>
-                        <span className="text-[7.5px] bg-[#0084FF]/15 text-[#0084FF] font-bold px-1.5 py-[1px] rounded-full uppercase tracking-wider scale-90 origin-left">APK</span>
-                      </div>
-                      <p className="text-[9.5px] text-gray-400 truncate mt-0.5">এক ক্লিকে ডাউনলোড করতে পাশে ক্লিক করুন</p>
-                    </div>
+              {/* Permanent 1-Click Installation Header */}
+              <div className="bg-[#18191A] border-b border-[#0084FF]/20 p-3 px-3.5 flex items-center justify-between select-none relative" id="apk_download_header">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className="p-1.5 bg-[#0084FF]/10 rounded-xl border border-[#0084FF]/25 flex-shrink-0 flex items-center justify-center animate-pulse">
+                    <Sparkles className="w-4 h-4 text-[#0084FF]" />
                   </div>
-                  
-                  <div className="flex items-center space-x-1.5 flex-shrink-0">
-                    <button 
-                      onClick={handleDownloadAPK}
-                      className="bg-gradient-to-r from-[#0084FF] to-[#00A8FF] hover:opacity-95 text-white font-bold text-[10px] px-3 py-1 rounded-full shadow-md active:scale-95 transition-all duration-150 flex items-center space-x-1"
-                      id="header_apk_download_trigger"
-                    >
-                      <Download className="w-3 h-3 text-white" />
-                      <span>ডাউনলোড</span>
-                    </button>
-                    <button 
-                      onClick={() => setShowDownloadBanner(false)}
-                      className="p-1 text-gray-500 hover:text-gray-300 transition rounded-full hover:bg-gray-800"
-                      title="Dismiss"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="min-w-0">
+                    <div className="flex items-center space-x-1.5">
+                      <span className="font-bold text-xs text-gray-100 tracking-wide truncate">মায়া অফিশিয়াল অ্যাপ</span>
+                      <span className="text-[7.5px] bg-[#0084FF]/15 text-[#0084FF] font-bold px-1.5 py-[1px] rounded-full uppercase tracking-wider scale-90 origin-left">INSTALL</span>
+                    </div>
+                    <p className="text-[9px] text-gray-400 truncate mt-0.5">১-ক্লিকে অ্যাপটি সরাসরি আপনার ফোনে যুক্ত করুন</p>
                   </div>
                 </div>
-              )}
+                
+                <div className="flex items-center flex-shrink-0">
+                  <button 
+                    onClick={handleDownloadAPK}
+                    className="bg-gradient-to-r from-[#0084FF] to-[#00A8FF] hover:from-[#00A8FF] hover:to-[#0084FF] text-white font-bold text-[10px] px-3.5 py-1.5 rounded-full shadow-lg shadow-[#0084FF]/20 active:scale-95 transition-all duration-150 flex items-center space-x-1 animate-bounce"
+                    id="header_apk_download_trigger"
+                  >
+                    <Download className="w-3 h-3 text-white" />
+                    <span>যুক্ত করুন</span>
+                  </button>
+                </div>
+              </div>
 
               {/* Tabs Content Switching Area */}
               <div className="flex-1 overflow-hidden relative">
@@ -133,12 +168,14 @@ export default function App() {
                   <ChatsTab 
                     onSelectPersona={handleSelectPersona} 
                     refreshFlag={refreshFlag} 
+                    onDownloadAPK={handleDownloadAPK}
                   />
                 )}
                 {activeTab === "people" && (
                   <PeopleTab 
                     onSelectPersona={handleSelectPersona} 
                     refreshFlag={refreshFlag} 
+                    onDownloadAPK={handleDownloadAPK}
                   />
                 )}
                 {activeTab === "settings" && (
@@ -203,6 +240,65 @@ export default function App() {
           )}
         </div>
 
+        {/* PWA Instruction modal help */}
+        {showPwaInstallModal && (
+          <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-[999] flex items-center justify-center p-4" id="pwa_instruction_modal">
+            <div className="bg-[#18191A] border border-gray-800/80 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl relative animate-in fade-in zoom-in duration-200">
+              <div className="p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="w-5 h-5 text-[#0084FF] animate-pulse" />
+                    <span className="font-bold text-sm text-gray-100">মায়াকে সরাসরি হোমসক্রিনে যুক্ত করুন</span>
+                  </div>
+                  <button 
+                    onClick={() => setShowPwaInstallModal(false)}
+                    className="p-1 text-gray-400 hover:text-gray-200 rounded-full hover:bg-gray-800"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  আপনার ফোনে মায়া অফিশিয়াল অ্যাপ সরাসরি মোবাইল স্ক্রিনে যুক্ত করার জন্য নিচের পদক্ষেপগুলো ব্যবহার করুন:
+                </p>
+
+                <div className="space-y-3 pt-1">
+                  <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
+                    <div className="w-5 h-5 rounded-full bg-[#0084FF]/20 text-[#0084FF] text-xs font-bold flex items-center justify-center mt-0.5">১</div>
+                    <div className="text-xs">
+                      <span className="text-gray-100 font-bold block">Android / Chrome ব্রাউজার</span>
+                      <p className="text-gray-400 mt-1">ব্রাউজারের উপরে ডানদিকের ৩টি ডট (<span className="font-bold text-[#0084FF]">⋮</span>) মেনুতে চাপুন এবং <b className="text-gray-200 font-semibold">"Install app"</b> অথবা <b className="text-gray-200 font-semibold">"Add to Home screen"</b> অপশনটিতে চাপুন।</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
+                    <div className="w-5 h-5 rounded-full bg-pink-500/20 text-pink-400 text-xs font-bold flex items-center justify-center mt-0.5">২</div>
+                    <div className="text-xs">
+                      <span className="text-gray-100 font-bold block">iPhone / Safari ব্রাউজার</span>
+                      <p className="text-gray-400 mt-1">ব্রাউজারের নিচে শেয়ার (<span className="px-1.5 py-0.5 bg-gray-800 rounded font-bold">↑</span>) বাটনে চাপুন এবং একটু নিচে স্ক্রল করে <b className="text-gray-200 font-semibold">"Add to Home Screen"</b> এ আলতো চাপুন।</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-start space-x-3">
+                    <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold flex items-center justify-center mt-0.5">৩</div>
+                    <div className="text-xs">
+                      <span className="text-gray-100 font-bold block">সরাসরি যুক্ত করার সুবিধা</span>
+                      <p className="text-gray-400 mt-1">কোনো প্রকার ঝক্কি-ঝামেলা ছাড়াই হোমসক্রিন আইকনটিতে এক ক্লিকেই সরাসরি চ্যাট স্ক্রিনে প্রবেশ করতে পারবেন।</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setShowPwaInstallModal(false)}
+                  className="w-full bg-[#0084FF] hover:bg-[#0084FF]/90 text-white font-bold text-xs py-3 rounded-xl transition duration-150 relative active:scale-95"
+                >
+                  বুঝেছি, ধন্যবাদ! 👍
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>
