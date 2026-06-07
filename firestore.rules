@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation helper: User
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'createdAt'])
+        && data.keys().size() <= 5
+        && data.uid is string
+        && data.uid.size() <= 128
+        && data.displayName is string
+        && data.displayName.size() <= 100;
+    }
+
+    // Validation helper: Persona
+    function isValidPersona(data) {
+      return data.keys().hasAll(['id', 'name', 'bengaliName', 'avatar'])
+        && data.id is string
+        && data.name is string
+        && data.avatar is string;
+    }
+
+    // Validation helper: Conversation
+    function isValidConversation(data) {
+      return data.keys().hasAll(['id', 'userId', 'personaId', 'updatedAt'])
+        && data.id is string
+        && data.userId is string
+        && data.personaId is string;
+    }
+
+    // Validation helper: Message
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'senderId', 'text', 'timestamp'])
+        && data.id is string
+        && data.senderId is string
+        && data.text is string
+        && data.text.size() <= 5000;
+    }
+
+    // Validation helper: Story
+    function isValidStory(data) {
+      return data.keys().hasAll(['id', 'personaId', 'name', 'mediaUrl'])
+        && data.id is string
+        && data.personaId is string
+        && data.name is string
+        && data.mediaUrl is string;
+    }
+
+    // 1. Users collection rules
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow create, update: if isOwner(userId) && isValidUser(incoming());
+      allow delete: if isOwner(userId);
+    }
+
+    // 2. Personas collection rules
+    match /personas/{personaId} {
+      allow read: if true; // Publicly readable for all chats (including guest mode)
+      allow write: if isSignedIn(); // Authenticated users can modify personas
+    }
+
+    // 3. Conversations collection rules
+    match /conversations/{conversationId} {
+      allow read, write: if isSignedIn(); // Allow reading/updating conversation metadata
+    }
+
+    // 4. Messages subcollection rules (under conversations)
+    match /conversations/{conversationId}/messages/{messageId} {
+      allow read, write: if isSignedIn(); // Allow reading/writing message logs
+    }
+
+    // 5. Stories collection rules
+    match /stories/{storyId} {
+      allow read: if true; // Stories are public
+      allow write: if isSignedIn(); // Only authenticated or admin can add stories
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Maya: AI Virtual Companion",
+  "description": "An interactive, Messenger-style companion chat platform featuring customizable, highly responsive AI personas with smooth animations and multi-language support (Bengali + English).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

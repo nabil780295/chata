@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile in the companion chat application",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "displayName", "createdAt"]
+    },
+    "Persona": {
+      "title": "Persona",
+      "description": "AI female companion persona profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "bengaliName": { "type": "string" },
+        "age": { "type": "integer" },
+        "avatar": { "type": "string" },
+        "status": { "type": "string" },
+        "bio": { "type": "string" },
+        "personality": { "type": "string" },
+        "prompt": { "type": "string" },
+        "location": { "type": "string" }
+      },
+      "required": ["id", "name", "bengaliName", "avatar"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Chat session mapping a user to an AI companion profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "personaId": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastSender": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "unreadCount": { "type": "integer" }
+      },
+      "required": ["id", "userId", "personaId", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Individual message inside a chat session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "attachmentUrl": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "text", "timestamp"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "Static/dynamic AI-generated visual story panel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "personaId": { "type": "string" },
+        "name": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "personaId", "name", "mediaUrl"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles managed by UID root"
+    },
+    "/personas/{personaId}": {
+      "schema": "Persona",
+      "description": "Preloaded and admin-customizable AI female personas"
+    },
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Chat collections mapping users and companion chats"
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Subcollection inside each conversation storing message bubbles"
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "Dynamic or custom stories displayed in the top bar"
+    }
+  }
+}
